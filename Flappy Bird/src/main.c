@@ -17,7 +17,7 @@
    Game Loop: Updates bird, pipes, and checks collisions. Adjust speed with
    delay parameter.
 
-   Developed by Sean Cleary(C22512873) and Ronan Cleary(C22382501)s
+   Developed by Sean Cleary(C22512873)
    Module : Microprocessors 
    Date: 23/11/23
 
