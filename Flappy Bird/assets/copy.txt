@@ -1,0 +1,389 @@
+#include <stm32f031x6.h>
+#include "display.h"
+#include <stdbool.h>
+//#include <time.h>
+#include <stdio.h>
+#include <stdlib.h> // Include this header for rand
+
+void initClock(void);
+void initSysTick(void);
+void SysTick_Handler(void);
+void delay(volatile uint32_t dly);
+void setupIO();
+int isInside(uint16_t x1, uint16_t y1, uint16_t w, uint16_t h, uint16_t px, uint16_t py);
+void enablePullUp(GPIO_TypeDef *Port, uint32_t BitNumber);
+void pinMode(GPIO_TypeDef *Port, uint32_t BitNumber, uint32_t Mode);
+
+// functions I created for hit detection
+bool is_Pipe_hit(int x , int y,int pipe_height);
+bool is_Coin_hit(int x , int y);
+bool is_floor_hit(int x, int y);
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 160
+#define PIPE_WIDTH 8
+#define COIN_X 100
+#define COIN_Y 70
+#define COIN_WIDTH 12
+#define COIN_HEIGHT 16
+
+
+
+
+uint16_t bottomY = SCREEN_HEIGHT - 60;
+
+
+volatile uint32_t milliseconds;
+
+
+
+const uint16_t deco1[]=
+{
+0,0,0,0,4,4,4,4,4,0,0,0,0,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,65415,65415,65415,248,65415,0,0,0,0,0,0,0,65415,65415,65415,65415,65415,8068,0,0,0,0,0,0,65415,65415,65415,4096,4096,0,0,0,0,0,0,0,0,65415,65415,65415,0,0,0,0,0,0,0,0,0,7936,7936,7936,0,0,0,0,0,0,0,0,7936,7936,65535,7936,0,0,0,0,0,0,0,0,7936,7936,65535,7936,7936,7936,7936,0,0,0,0,0,7936,7936,65535,65535,65535,65535,7936,0,0,0,0,0,7936,7936,7936,7936,7936,7936,7936,0,0,0,0,0,7936,7936,7936,7936,0,0,0,0,0,0,0,0,0,7936,65535,7936,0,0,0,0,0,0,0,0,0,7936,65535,7936,0,0,0,0,0,0,0,0,0,7936,65535,7936,0,0,0,0,0,0,0,0,0,7940,7940,7940,7940,0,0,0,
+};
+const uint16_t bird2_yel[]= 
+{
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,24334,24327,24327,0,0,0,0,0,0,0,0,0,0,24327,24327,0,0,0,0,24334,24327,24327,24327,24327,0,0,0,0,0,0,0,0,24334,24327,24327,24327,0,0,24334,24327,24327,0,24327,0,24327,0,0,0,0,24327,24327,0,24334,24327,24327,24327,24327,0,24334,24327,24327,24327,24327,24327,24334,0,0,0,0,24334,24327,0,0,24334,24327,24327,24327,24327,24334,24327,24327,24327,24327,24334,57091,57091,57091,0,0,24334,24327,24327,0,0,24334,24327,24327,24327,24334,24327,24327,24327,24327,24334,63490,63490,63490,0,0,24334,24327,24327,24327,24327,24327,24334,24327,24327,24334,24327,24327,24327,24327,24327,24334,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24334,24334,24327,24327,24327,24327,24327,24327,0,0,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,0,0,0,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24327,24327,24327,24327,0,0,0,0,0,0,0,0,0,0,0,24334,24327,24327,24334,24327,24334,24327,24327,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,57091,0,57091,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,57091,0,57091,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,63490,63490,0,63490,63490,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+const uint16_t deco3[]= 
+{
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,0,0,0,0,0,0,0,0,4,4,0,0,0,0,0,0,0,0,0,4,4,4,4,0,0,0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,7936,7936,4,4,4,4,4,4,7936,7936,0,0,65535,65535,4,4,4,4,4,4,65535,65535,0,0,7936,7936,4,4,4,4,4,4,7936,7936,0,0,0,0,0,4,4,4,4,0,0,0,0,0,0,0,0,0,24327,24327,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+
+const uint16_t bird1_yel[]=
+{
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,24334,24327,24327,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,24334,24327,24327,24327,24327,0,0,0,0,0,0,24334,24334,0,0,0,0,0,0,24334,24327,24327,0,24327,0,24327,0,0,0,0,24334,24327,0,0,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24334,0,0,0,0,24334,24327,0,0,0,0,0,0,0,24334,24327,24327,24327,24327,24334,57091,57091,57091,0,0,24334,24327,24327,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24334,63490,63490,63490,0,0,24334,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24334,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,0,0,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,24327,0,0,0,0,0,0,0,0,24334,24327,24327,24327,24327,24327,24327,24327,24327,24327,0,0,0,0,0,0,0,0,0,0,0,24334,24327,24327,24334,24327,24334,24327,24327,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,57091,0,57091,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,57091,0,57091,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,63490,63490,0,63490,63490,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+
+const uint16_t bird2_red[]=
+{
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,22552,40224,40224,0,0,0,0,0,0,0,0,0,0,40224,40224,0,0,0,0,22552,40224,40224,40224,40224,0,0,0,0,0,0,0,0,22552,40224,40224,40224,0,0,22552,40224,40224,0,40224,0,40224,0,0,0,0,40224,40224,0,22552,40224,40224,40224,40224,0,22552,40224,40224,40224,40224,40224,22552,0,0,0,0,22552,40224,0,0,22552,40224,40224,40224,40224,22552,40224,40224,40224,40224,22552,57091,57091,57091,0,0,22552,40224,40224,0,0,22552,40224,40224,40224,22552,40224,40224,40224,40224,22552,63490,63490,63490,0,0,22552,40224,40224,40224,40224,40224,22552,40224,40224,22552,40224,40224,40224,40224,40224,22552,0,0,0,0,0,22552,40224,40224,40224,40224,40224,22552,22552,40224,40224,40224,40224,40224,40224,0,0,0,0,0,0,0,22552,40224,40224,40224,40224,40224,40224,40224,40224,40224,40224,40224,40224,0,0,0,0,0,0,0,0,22552,40224,40224,40224,40224,40224,40224,40224,40224,40224,0,0,0,0,0,0,0,0,0,0,0,22552,40224,40224,22552,40224,22552,40224,40224,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,22552,0,22552,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,22552,0,22552,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,54544,54544,0,54544,54544,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+
+const uint16_t coin[]=
+{
+	0,0,16142,16142,16142,16142,16142,16142,16142,16142,0,0,0,0,0,16142,16142,16142,16142,16142,16142,0,0,0,0,0,16142,16142,16142,16142,16142,16142,16142,16142,0,0,0,0,16142,16142,16142,1994,1994,16142,16142,16142,0,0,0,0,16142,16142,16142,1994,16142,1994,16142,16142,0,0,0,0,16142,16142,16142,1994,16142,1994,16142,16142,0,0,0,0,16142,16142,16142,1994,16142,1994,16142,16142,0,0,0,0,16142,16142,16142,1994,1994,16142,16142,16142,0,0,0,0,16142,16142,16142,16142,16142,16142,16142,16142,0,0,0,0,16142,16142,16142,1994,1994,1994,16142,16142,0,0,0,0,16142,16142,16142,1994,16142,16142,16142,16142,0,0,0,0,16142,16142,16142,1994,16142,16142,16142,16142,0,0,0,0,16142,16142,16142,1994,16142,1994,16142,16142,0,0,0,0,16142,16142,16142,1994,1994,1994,16142,16142,0,0,0,0,0,16142,16142,16142,16142,16142,16142,0,0,0,0,0,0,16142,16142,16142,16142,16142,16142,0,0,0,
+};
+
+
+int main()
+{
+	int hinverted = 0;
+	int vinverted = 0;
+	int toggle = 0;
+	int hmoved = 0;
+	int vmoved = 0;
+
+	int pipe_height = 65;
+	
+
+
+	// deteremines the starting postion of the bird 
+	uint16_t x = 20;
+	uint16_t y = 70;
+
+	uint16_t oldx = x;
+	uint16_t oldy = y;
+
+	bool title_screen = true;
+
+
+	initClock();
+	initSysTick();
+	setupIO();
+	//srand(time(NULL));
+
+
+	while(title_screen)
+	{
+		// (255,0,0) chnages the colour to red 
+		printTextX2("Flappy", 30, 30, RGBToWord(255, 0, 0), RGBToWord(0, 0, 0));
+		printTextX2("Bird", 30, 50, RGBToWord(255, 0, 0), RGBToWord(0, 0, 0));
+
+		putImage(50,80,20,20,bird1_yel,0,0);
+
+		// (255,255,255) chnages the colour to white
+		printText("Press up/down", 6, 110, RGBToWord(255, 255, 255), RGBToWord(0, 0, 0));
+		printText("to start the game", 6, 120, RGBToWord(255, 255, 255), RGBToWord(0, 0, 0));
+
+		if ( (GPIOA->IDR & (1 << 11)) == 0) // down pressed
+		{	
+			title_screen = false;
+			clear();
+			break;
+		}
+
+		if ( (GPIOA->IDR & (1 << 8)) == 0) // up pressed
+		{	
+			title_screen = false;
+			clear();
+			break;
+		}
+
+		
+	}
+	
+	while(1)
+	{
+		hmoved = vmoved = 0; 
+		hinverted = vinverted = 0;
+
+		if ((GPIOA->IDR & (1 << 8)) == 0) // Up button pressed
+		{
+			if (y > 16)
+			{
+				y = y - 1;
+				vmoved = 1;
+				vinverted = 1;
+			}
+		}
+
+		if ( (GPIOA->IDR & (1 << 11)) == 0) // down pressed
+		{
+			if (y < 140)
+			{
+				y = y + 1;			
+				vmoved = 1;
+				vinverted = 0;
+			}
+		}
+
+
+		// Update game state
+			// ...
+
+		if ((vmoved) || (hmoved))
+		{
+			// only redraw if there has been some movement (reduces flicker)
+			fillRectangle(oldx,oldy,20,20,0);
+			oldx = x;
+			oldy = y;		
+
+			if (vmoved)
+			{
+				if (toggle)
+				putImage(x,y,20,20,bird1_yel,hinverted,0);
+
+				else
+				putImage(x,y,20,20,bird2_yel,hinverted,0);
+					
+					toggle = toggle ^ 1;
+			}
+
+
+		}
+
+
+		for(int i = 25; i > -26; i = i - 25 )
+		{
+			//pipe_varation = (rand() % 30) + 1;
+			drawRectangle(SCREEN_WIDTH / 2 - i, 0, PIPE_WIDTH, pipe_height, RGBToWord(255, 0, 0));
+			fillRectangle(SCREEN_WIDTH / 2 - i, 0, PIPE_WIDTH, pipe_height, RGBToWord(255, 0, 0));
+
+
+			drawRectangle(SCREEN_WIDTH / 2 - i, bottomY, PIPE_WIDTH, pipe_height, RGBToWord(255, 0, 0));
+			fillRectangle(SCREEN_WIDTH / 2 - i, bottomY, PIPE_WIDTH, pipe_height, RGBToWord(255, 0, 0));
+
+				
+		}
+
+		// displays coin image 
+		putImage(COIN_X, COIN_Y, COIN_WIDTH, COIN_HEIGHT, coin, 0, 0);
+
+		// displays current level
+		printText("Level", 2, 10, RGBToWord(255, 255, 255), RGBToWord(0, 0, 0));
+		printText("1", 10, 20, RGBToWord(255, 255, 255), RGBToWord(0, 0, 0));
+
+
+
+		if (is_Pipe_hit(x,y,pipe_height) == true )
+		{		
+			clear();
+			break;
+
+		}
+
+		if (is_Coin_hit(x,y) == true )
+		{	
+			printTextX2("NEXT", 30, 30, RGBToWord(255, 255, 0), RGBToWord(0, 0, 0));
+			printTextX2("LEVEL", 30, 50, RGBToWord(255, 255, 0), RGBToWord(0, 0, 0));
+
+			delay(2000);
+			clear();
+			break;
+
+		}
+
+		if (is_floor_hit(x,y) == true )
+		{	
+			printTextX2("GAME", 30, 30, RGBToWord(255, 255, 0), RGBToWord(0, 0, 0));
+			printTextX2("Over", 30, 50, RGBToWord(255, 255, 0), RGBToWord(0, 0, 0));
+
+			delay(2000);
+			clear();
+			break;
+
+		}
+
+		delay(50);
+
+	}
+			
+	return 0;
+}
+
+	
+
+
+void initSysTick(void)
+{
+	SysTick->LOAD = 48000;
+	SysTick->CTRL = 7;
+	SysTick->VAL = 10;
+	__asm(" cpsie i "); // enable interrupts
+}
+void SysTick_Handler(void)
+{
+	milliseconds++;
+}
+void initClock(void)
+{
+// This is potentially a dangerous function as it could
+// result in a system with an invalid clock signal - result: a stuck system
+        // Set the PLL up
+        // First ensure PLL is disabled
+        RCC->CR &= ~(1u<<24);
+        while( (RCC->CR & (1 <<25))); // wait for PLL ready to be cleared
+        
+// Warning here: if system clock is greater than 24MHz then wait-state(s) need to be
+// inserted into Flash memory interface
+				
+        FLASH->ACR |= (1 << 0);
+        FLASH->ACR &=~((1u << 2) | (1u<<1));
+        // Turn on FLASH prefetch buffer
+        FLASH->ACR |= (1 << 4);
+        // set PLL multiplier to 12 (yielding 48MHz)
+        RCC->CFGR &= ~((1u<<21) | (1u<<20) | (1u<<19) | (1u<<18));
+        RCC->CFGR |= ((1<<21) | (1<<19) ); 
+
+        // Need to limit ADC clock to below 14MHz so will change ADC prescaler to 4
+        RCC->CFGR |= (1<<14);
+
+        // and turn the PLL back on again
+        RCC->CR |= (1<<24);        
+        // set PLL as system clock source 
+        RCC->CFGR |= (1<<1);
+}
+void delay(volatile uint32_t dly)
+{
+	uint32_t end_time = dly + milliseconds;
+	while(milliseconds != end_time)
+		__asm(" wfi "); // sleep
+}
+void enablePullUp(GPIO_TypeDef *Port, uint32_t BitNumber)
+{
+	Port->PUPDR = Port->PUPDR &~(3u << BitNumber*2); // clear pull-up resistor bits
+	Port->PUPDR = Port->PUPDR | (1u << BitNumber*2); // set pull-up bit
+}
+void pinMode(GPIO_TypeDef *Port, uint32_t BitNumber, uint32_t Mode)
+{
+	/*
+	*/
+	uint32_t mode_value = Port->MODER;
+	Mode = Mode << (2 * BitNumber);
+	mode_value = mode_value & ~(3u << (BitNumber * 2));
+	mode_value = mode_value | Mode;
+	Port->MODER = mode_value;
+}
+int isInside(uint16_t x1, uint16_t y1, uint16_t w, uint16_t h, uint16_t px, uint16_t py)
+{
+	// checks to see if point px,py is within the rectange defined by x,y,w,h
+	uint16_t x2,y2;
+	x2 = x1+w;
+	y2 = y1+h;
+	int rvalue = 0;
+	if ( (px >= x1) && (px <= x2))
+	{
+		// ok, x constraint met
+		if ( (py >= y1) && (py <= y2))
+			rvalue = 1;
+	}
+	return rvalue;
+}
+void setupIO()
+{
+	RCC->AHBENR |= (1 << 18) + (1 << 17); // enable Ports A and B
+	display_begin();
+	pinMode(GPIOB,4,0);
+	pinMode(GPIOB,5,0);
+	pinMode(GPIOA,8,0);
+	pinMode(GPIOA,11,0);
+	enablePullUp(GPIOB,4);
+	enablePullUp(GPIOB,5);
+	enablePullUp(GPIOA,11);
+	enablePullUp(GPIOA,8);
+}
+
+// function to determine if my character has 
+// 'hit' one of the rectangles
+bool is_Pipe_hit(int x,int y,int pipe_height)
+{		
+	for(int i = 25; i > -26; i = i - 25 )
+	{
+		if(isInside(SCREEN_WIDTH / 2 - i, 0, PIPE_WIDTH, pipe_height,x,y) || 
+		isInside(SCREEN_WIDTH / 2 - i, 0, PIPE_WIDTH, pipe_height,x+12,y) ||
+		isInside(SCREEN_WIDTH / 2 - i, 0, PIPE_WIDTH, pipe_height,x,y+16) ||
+		isInside(SCREEN_WIDTH / 2 - i, 0, PIPE_WIDTH, pipe_height,x+12,y+16) ||
+		isInside(SCREEN_WIDTH / 2 - i, bottomY, PIPE_WIDTH, pipe_height,x,y) || 
+		isInside(SCREEN_WIDTH / 2 - i, bottomY, PIPE_WIDTH, pipe_height,x+12,y) ||
+		isInside(SCREEN_WIDTH / 2 - i, bottomY, PIPE_WIDTH, pipe_height,x,y+16) ||
+		isInside(SCREEN_WIDTH / 2 - i, bottomY, PIPE_WIDTH, pipe_height,x+12,y+16))
+
+		return true ;
+
+		
+	}
+
+	return false;
+		
+
+}
+
+
+bool is_Coin_hit(int x,int y)
+{		
+
+	if(isInside(COIN_X,COIN_Y,COIN_WIDTH,COIN_HEIGHT,x,y) || 
+	isInside(COIN_X,COIN_Y,COIN_WIDTH,COIN_HEIGHT,x+12,y) ||
+	isInside(COIN_X,COIN_Y,COIN_WIDTH,COIN_HEIGHT,x,y+16) ||
+	isInside(COIN_X,COIN_Y,COIN_WIDTH,COIN_HEIGHT,x+12,y+16))
+
+	return true;
+		
+
+	return false;
+		
+
+}
+
+bool is_floor_hit(int x,int y)
+{
+	return(y >=SCREEN_HEIGHT - 20);
+}
+
+
+
+
+
+// pipe 2
+		drawRectangle(SCREEN_WIDTH / 2, 0, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
+		fillRectangle(SCREEN_WIDTH / 2 , 0, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
+		drawRectangle(SCREEN_WIDTH / 2, bottomY, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
+		fillRectangle(SCREEN_WIDTH /2, bottomY, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
+
+
+		// pipe 3
+		drawRectangle(SCREEN_WIDTH / 2 + 25, 0, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
+		fillRectangle(SCREEN_WIDTH / 2 + 25, 0, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
+		drawRectangle(SCREEN_WIDTH / 2 + 25, bottomY, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
+		fillRectangle(SCREEN_WIDTH / 2 + 25, bottomY, PIPE_WIDTH, PIPE_HEIGHT, RGBToWord(255, 0, 0));
