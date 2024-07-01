@@ -129,13 +129,13 @@ int main()
 
 	while(title_screen)
 	{
-		// (255,0,0) chnages the colour to red 
+		// (255,0,0) changes the colour to red 
 		printTextX2("Flappy", 30, 30, RGBToWord(255, 0, 0), RGBToWord(0, 0, 0));
 		printTextX2("Bird", 30, 50, RGBToWord(255, 0, 0), RGBToWord(0, 0, 0));
 
 		putImage(50,80,20,20,bird1_yel,0,0);
 
-		// (255,255,255) chnages the colour to white
+		// (255,255,255) changes the colour to white
 		printText("Press up/down", 6, 110, RGBToWord(255, 255, 255), RGBToWord(0, 0, 0));
 		printText("to start the game", 6, 120, RGBToWord(255, 255, 255), RGBToWord(0, 0, 0));
 
@@ -435,9 +435,6 @@ void setupIO()
 	enablePullUp(GPIOA,11);
 	enablePullUp(GPIOA,8);
 }
-
-
-
 
 bool is_floor_hit(int x,int y)
 {
